@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23211.1" systemVersion="24A5298h" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="MetadataEntity" representedClassName="MetadataEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="createdAt" attributeType="String"/>
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="readCountRemaining" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="timeToExpire" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="metadata" maxCount="1" deletionRule="Nullify" destinationEntity="RecordEntity"/>
+    </entity>
+    <entity name="OfferEntity" representedClassName="OfferEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="id" attributeType="String"/>
+        <attribute name="information" attributeType="String"/>
+        <attribute name="price" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <relationship name="offers" toMany="YES" deletionRule="Nullify" destinationEntity="SubscriptionEntity" inverseName="offers" inverseEntity="SubscriptionEntity"/>
+    </entity>
+    <entity name="RecordEntity" representedClassName="RecordEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="headerLogoUrl" attributeType="String"/>
+        <relationship name="record" maxCount="1" deletionRule="Cascade" destinationEntity="ResponseEntity"/>
+        <relationship name="subscription" maxCount="1" deletionRule="Nullify" destinationEntity="SubscriptionEntity"/>
+    </entity>
+    <entity name="ResponseEntity" representedClassName="ResponseEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="id" attributeType="String"/>
+        <relationship name="metadata" maxCount="1" deletionRule="Nullify" destinationEntity="MetadataEntity"/>
+        <relationship name="record" maxCount="1" deletionRule="Nullify" destinationEntity="RecordEntity"/>
+    </entity>
+    <entity name="SubscriptionEntity" representedClassName="SubscriptionEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="benefits" attributeType="Transformable"/>
+        <attribute name="coverImageUrl" attributeType="String"/>
+        <attribute name="disclaimer" attributeType="String"/>
+        <attribute name="offerPageStyle" attributeType="String"/>
+        <attribute name="subscribeSubtitle" attributeType="String"/>
+        <attribute name="subscribeTitle" attributeType="String"/>
+        <relationship name="offers" toMany="YES" deletionRule="Nullify" destinationEntity="OfferEntity" inverseName="offers" inverseEntity="OfferEntity"/>
+        <relationship name="subscription" maxCount="1" deletionRule="Nullify" destinationEntity="RecordEntity"/>
+    </entity>
+</model>
