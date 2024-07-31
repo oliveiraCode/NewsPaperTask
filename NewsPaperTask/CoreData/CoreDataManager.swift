@@ -32,12 +32,13 @@ final class CoreDataManager {
     
     func saveResponse(_ response: Response) {
         let context = self.context
-        let responseEntity = ResponseEntity(context: context)
-        responseEntity.id = response.id
-        
-        let recordEntity = RecordEntity(context: context)
-        recordEntity.headerLogoUrl = response.record.headerLogoUrl
-        
+
+        let metadataEntity = MetadataEntity(context: context)
+        metadataEntity.name = response.metadata.name
+        metadataEntity.readCountRemaining = Int32(response.metadata.readCountRemaining)
+        metadataEntity.timeToExpire = Int32(response.metadata.timeToExpire)
+        metadataEntity.createdAt = response.metadata.createdAt
+
         let subscriptionEntity = SubscriptionEntity(context: context)
         subscriptionEntity.offerPageStyle = response.record.subscription.offerPageStyle
         subscriptionEntity.coverImageUrl = response.record.subscription.coverImageUrl
@@ -45,7 +46,7 @@ final class CoreDataManager {
         subscriptionEntity.subscribeSubtitle = response.record.subscription.subscribeSubtitle
         subscriptionEntity.benefits = response.record.subscription.benefits as NSObject
         subscriptionEntity.disclaimer = response.record.subscription.disclaimer
-        
+
         let offerEntities = response.record.subscription.offers.map { offer -> OfferEntity in
             let offerEntity = OfferEntity(context: context)
             offerEntity.id = offer.id
@@ -54,57 +55,17 @@ final class CoreDataManager {
             return offerEntity
         }
         subscriptionEntity.offers = Set(offerEntities) as NSSet
-        
+
+        let recordEntity = RecordEntity(context: context)
+        recordEntity.headerLogoUrl = response.record.headerLogoUrl
         recordEntity.subscription = subscriptionEntity
+
+        let responseEntity = ResponseEntity(context: context)
+        responseEntity.id = response.id
         responseEntity.record = recordEntity
-        
+        responseEntity.metadata = metadataEntity
+
         saveContext()
-    }
-    
-    // MARK: - Update
-    
-    func updateResponse(withId id: String, newData: Response) {
-        let context = self.context
-        let fetchRequest: NSFetchRequest<ResponseEntity> = ResponseEntity.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "id == %@", id)
-        
-        do {
-            let results = try context.fetch(fetchRequest)
-            if let responseEntity = results.first {
-                // Atualize o responseEntity com newData
-                if let recordEntity = responseEntity.record {
-                    recordEntity.headerLogoUrl = newData.record.headerLogoUrl
-
-                    if let subscriptionEntity = recordEntity.subscription {
-                        subscriptionEntity.offerPageStyle = newData.record.subscription.offerPageStyle
-                        subscriptionEntity.coverImageUrl = newData.record.subscription.coverImageUrl
-                        subscriptionEntity.subscribeTitle = newData.record.subscription.subscribeTitle
-                        subscriptionEntity.subscribeSubtitle = newData.record.subscription.subscribeSubtitle
-                        subscriptionEntity.benefits = newData.record.subscription.benefits as NSObject
-                        subscriptionEntity.disclaimer = newData.record.subscription.disclaimer
-
-                        let newOfferEntities = newData.record.subscription.offers.map { offer -> OfferEntity in
-                            let offerEntity = OfferEntity(context: context)
-                            offerEntity.id = offer.id
-                            offerEntity.price = offer.price
-                            offerEntity.information = offer.information
-                            return offerEntity
-                        }
-                        
-                        if let existingOffers = subscriptionEntity.offers {
-                            for offerEntity in existingOffers {
-                                context.delete(offerEntity as! NSManagedObject)
-                            }
-                        }
-                        
-                        subscriptionEntity.offers = Set(newOfferEntities) as NSSet
-                    }
-                }
-                saveContext()
-            }
-        } catch {
-            print("Failed to update response: \(error)")
-        }
     }
     
     // MARK: - Fetch
@@ -153,7 +114,7 @@ final class CoreDataManager {
                 return response
             }
         } catch {
-            print("Failed to fetch saved response: \(error)")
+            print("Failed to fetch response: \(error)")
         }
         return nil
     }
@@ -162,7 +123,7 @@ final class CoreDataManager {
         do {
             try context.save()
         } catch {
-            print("Failed to save response: \(error)")
+            print("Failed to save context: \(error)")
         }
     }
 }

@@ -22,7 +22,7 @@ protocol SubscriptionServiceType {
 }
 
 final class SubscriptionService: SubscriptionServiceType {
-    private let url = URL(string: "https://api.jsonbin.io/v3/qs/66a950f0e41b4d34e41961f8")!
+    private let url = URL(string: "https://api.jsonbin.io/v3/qs/66aaa172e41b4d34e419e815")!
 
     func fetchData(completion: @escaping (Result<Response, ServiceError>) -> Void) {
         URLSession.shared.dataTask(with: url) { data, response, error in
