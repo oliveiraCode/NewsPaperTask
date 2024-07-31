@@ -15,9 +15,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = (scene as? UIWindowScene) else { return }
 
         window = UIWindow(windowScene: windowScene)
-        let viewModel = SubscriptionViewModel(service: SubscriptionService())
-        let viewController = SubscriptionViewController(viewModel: viewModel)
-        let navigationController = UINavigationController(rootViewController: viewController)
+        let navigationController = UINavigationController(rootViewController: RootViewController())
         window?.rootViewController = navigationController
         window?.makeKeyAndVisible()
     }
