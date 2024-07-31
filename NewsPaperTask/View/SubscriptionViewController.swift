@@ -25,8 +25,7 @@ final class SubscriptionViewController: UIViewController {
     
     private let headerLogoImageView: UIImageView = {
         let imageView = UIImageView()
-        imageView.contentMode = .scaleAspectFit
-        imageView.backgroundColor = .blue
+        imageView.contentMode = .scaleAspectFill
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
@@ -34,7 +33,6 @@ final class SubscriptionViewController: UIViewController {
     private let coverImageView: UIImageView = {
         let imageView = UIImageView()
         imageView.contentMode = .scaleAspectFill
-        imageView.backgroundColor = .yellow
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
@@ -71,6 +69,8 @@ final class SubscriptionViewController: UIViewController {
         let button = UIButton(type: .system)
         button.setTitle("Subscribe Now", for: .normal)
         button.titleLabel?.font = UIFont.boldSystemFont(ofSize: 18)
+        button.backgroundColor = .blue
+        button.setTitleColor(.white, for: .normal)
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
     }()
@@ -84,6 +84,14 @@ final class SubscriptionViewController: UIViewController {
         return label
     }()
     
+    private let imageStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 8
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        return stackView
+    }()
+    
     private let offersStackView: UIStackView = {
         let stackView = UIStackView()
         stackView.axis = .horizontal
@@ -92,14 +100,14 @@ final class SubscriptionViewController: UIViewController {
         stackView.translatesAutoresizingMaskIntoConstraints = false
         return stackView
     }()
-
+    
     private let separatorView: UIView = {
         let view = UIView()
         view.backgroundColor = .gray
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
-
+    
     private let benefitsStackView: UIStackView = {
         let stackView = UIStackView()
         stackView.axis = .vertical
@@ -116,7 +124,7 @@ final class SubscriptionViewController: UIViewController {
         view.isHidden = true
         return view
     }()
-
+    
     private let errorLabel: UILabel = {
         let label = UILabel()
         label.text = "An error occurred. Please try again."
@@ -126,7 +134,7 @@ final class SubscriptionViewController: UIViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
-
+    
     private let retryButton: UIButton = {
         let button = UIButton(type: .system)
         button.setTitle("Retry", for: .normal)
@@ -142,13 +150,15 @@ final class SubscriptionViewController: UIViewController {
         indicator.startAnimating()
         return indicator
     }()
-
+    
+    private var offersView: OffersView?
+    
     private var benefits: [String] = [] {
         didSet {
             updateBenefitsStackView()
         }
     }
-
+    
     init(viewModel: SubscriptionViewModel) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
@@ -163,7 +173,7 @@ final class SubscriptionViewController: UIViewController {
         setupViews()
         setupConstraints()
         showLoadingIndicator()
-
+        
         viewModel.didUpdateState = { [weak self] state in
             switch state {
             case .idle:
@@ -180,48 +190,55 @@ final class SubscriptionViewController: UIViewController {
             case .failure(let error):
                 DispatchQueue.main.async {
                     self?.hideLoadingIndicator()
-                  //  self?.showError(error)
+                    self?.showError(error)
                 }
             }
         }
         
         viewModel.fetchSubscriptionData()
     }
-
+    
     private func updateUI(with data: Record) {
         if let headerLogoURL = URL(string: data.headerLogoUrl) {
             downloadImage(from: headerLogoURL) { [weak self] image in
-                self?.headerLogoImageView.image = image
+                DispatchQueue.main.async {
+                    guard let self = self else { return }
+                    self.headerLogoImageView.image = image
+                    self.imageStackView.addArrangedSubview(self.headerLogoImageView)
+                }
             }
         }
-
+        
         if let coverImageURL = URL(string: data.subscription.coverImageUrl) {
             downloadImage(from: coverImageURL) { [weak self] image in
-                self?.coverImageView.image = image
+                DispatchQueue.main.async {
+                    guard let self = self else { return }
+                    self.coverImageView.image = image
+                    self.imageStackView.addArrangedSubview(self.coverImageView)
+                }
             }
         }
         
         subscribeTitleLabel.text = data.subscription.subscribeTitle
         subscribeSubtitleLabel.text = data.subscription.subscribeSubtitle
-        disclaimerLabel.text = data.subscription.disclaimer
+        disclaimerLabel.setHTMLFromString(htmlText: data.subscription.disclaimer)
         benefits = data.subscription.benefits
         
-        // Remove existing offer buttons
-        offersStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        
-        // Create offer buttons based on the data from API
-        data.subscription.offers.forEach { offer in
-            let offerButton = createOfferButton(price: offer.price.currencyString, description: offer.information)
-            offersStackView.addArrangedSubview(offerButton)
-            offersStackView.addArrangedSubview(separatorView)
+        let offerViews = data.subscription.offers.enumerated().map { index, offer in
+            OfferView(
+                price: offer.price.currencyString,
+                description: offer.information,
+                isChecked: index == 0
+            )
         }
-        
-        // Remove the last separator view
-        if offersStackView.arrangedSubviews.last == separatorView {
-            offersStackView.arrangedSubviews.last?.removeFromSuperview()
+        offersStackView.arrangedSubviews.forEach { view in
+            offersStackView.removeArrangedSubview(view)
+            view.removeFromSuperview()
         }
+        offersStackView.addArrangedSubview(offerViews[0])
+        offersStackView.addArrangedSubview(offerViews[1])
     }
-    
+
     private func showLoadingIndicator() {
         if !view.subviews.contains(loadingIndicator) {
             view.addSubview(loadingIndicator)
@@ -236,51 +253,49 @@ final class SubscriptionViewController: UIViewController {
         errorView.isHidden = true
         scrollView.isHidden = true
     }
-
+    
     private func hideLoadingIndicator() {
         loadingIndicator.stopAnimating()
         errorView.isHidden = true
         scrollView.isHidden = false
     }
-
+    
     private func showError(_ error: Error) {
         errorView.isHidden = false
         scrollView.isHidden = true
     }
-
+    
     @objc private func retryAction() {
         showLoadingIndicator()
         viewModel.fetchSubscriptionData()
     }
-
+    
     private func setupViews() {
         view.backgroundColor = .white
         
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
-
+        
         contentView.addSubview(headerLogoImageView)
         contentView.addSubview(coverImageView)
         contentView.addSubview(subscribeTitleLabel)
         contentView.addSubview(subscribeSubtitleLabel)
-        contentView.addSubview(offersStackView)
         contentView.addSubview(benefitsLabel)
         contentView.addSubview(benefitsStackView)
         contentView.addSubview(subscribeNowButton)
         contentView.addSubview(disclaimerLabel)
+        contentView.addSubview(offersStackView)
         
+        contentView.addSubview(imageStackView)
         // Error View
         view.addSubview(errorView)
         errorView.addSubview(errorLabel)
         errorView.addSubview(retryButton)
         
-        // Adding example buttons to stackView
-        let offerButton1 = createOfferButton(price: 0.currencyString, description: "N/A")
-        let offerButton2 = createOfferButton(price: 0.currencyString, description: "N/A")
-
-        offersStackView.addArrangedSubview(offerButton1)
-        offersStackView.addArrangedSubview(separatorView)
-        offersStackView.addArrangedSubview(offerButton2)
+        let offer1 = OfferView(price: "$10.00", description: "Basic Plan", isChecked: false)
+        let offer2 = OfferView(price: "$20.00", description: "Premium Plan", isChecked: false)
+        offersStackView.addArrangedSubview(offer1)
+        offersStackView.addArrangedSubview(offer2)
         
         // Setup benefits label tap gesture
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(toggleBenefits))
@@ -290,36 +305,35 @@ final class SubscriptionViewController: UIViewController {
         // Set action on retry button error
         retryButton.addTarget(self, action: #selector(retryAction), for: .touchUpInside)
     }
-    
+
     private func setupConstraints() {
-        NSLayoutConstraint.activate([
+        var constraints: [NSLayoutConstraint] = []
+
+        let contentViewHeight = contentView.heightAnchor.constraint(equalTo: view.heightAnchor)
+        contentViewHeight.priority = .init(200)
+    
+        constraints += [
             // Scroll View Constraints
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
             // Content View Constraints
             contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
+            contentView.widthAnchor.constraint(equalTo: view.widthAnchor),
+            contentViewHeight,
             
-            // Header Logo
-            headerLogoImageView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            headerLogoImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            headerLogoImageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            headerLogoImageView.heightAnchor.constraint(equalToConstant: 20),
-            
-            // Cover Image
-            coverImageView.topAnchor.constraint(equalTo: headerLogoImageView.bottomAnchor, constant: 8),
-            coverImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            coverImageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            coverImageView.heightAnchor.constraint(equalToConstant: 100),
-            
+            // Logos
+            imageStackView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 24),
+            imageStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            imageStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+ 
             // Subscribe Title
-            subscribeTitleLabel.topAnchor.constraint(equalTo: coverImageView.bottomAnchor, constant: 8),
+            subscribeTitleLabel.topAnchor.constraint(equalTo: imageStackView.bottomAnchor, constant: 8),
             subscribeTitleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             subscribeTitleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             
@@ -327,22 +341,19 @@ final class SubscriptionViewController: UIViewController {
             subscribeSubtitleLabel.topAnchor.constraint(equalTo: subscribeTitleLabel.bottomAnchor, constant: 4),
             subscribeSubtitleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             subscribeSubtitleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            
-            // Offers Stack View
+
+            // OffersStackView
             offersStackView.topAnchor.constraint(equalTo: subscribeSubtitleLabel.bottomAnchor, constant: 16),
             offersStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             offersStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            offersStackView.heightAnchor.constraint(equalToConstant: 50),
             
             // Benefits Label
+            benefitsLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             benefitsLabel.topAnchor.constraint(equalTo: offersStackView.bottomAnchor, constant: 16),
-            benefitsLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            benefitsLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             
             // Benefits Stack View
+            benefitsStackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             benefitsStackView.topAnchor.constraint(equalTo: benefitsLabel.bottomAnchor, constant: 8),
-            benefitsStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            benefitsStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             
             // Subscribe Now Button
             subscribeNowButton.topAnchor.constraint(equalTo: benefitsStackView.bottomAnchor, constant: 16),
@@ -355,10 +366,6 @@ final class SubscriptionViewController: UIViewController {
             disclaimerLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             disclaimerLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             disclaimerLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
-            
-            // Separator View for Offers buttons
-            separatorView.widthAnchor.constraint(equalToConstant: 2),
-            separatorView.heightAnchor.constraint(equalToConstant: 50),
             
             // Error View Constraints
             errorView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -375,17 +382,9 @@ final class SubscriptionViewController: UIViewController {
             retryButton.topAnchor.constraint(equalTo: errorLabel.bottomAnchor, constant: 16),
             retryButton.centerXAnchor.constraint(equalTo: errorView.centerXAnchor),
             retryButton.bottomAnchor.constraint(equalTo: errorView.bottomAnchor, constant: -16),
-        ])
-    }
-    
-    private func createOfferButton(price: String, description: String) -> UIButton {
-        let button = UIButton(type: .system)
-        button.setTitle("\(price)\n\(description)", for: .normal)
-        button.titleLabel?.numberOfLines = 0
-        button.titleLabel?.textAlignment = .center
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.addTarget(self, action: #selector(didTapOfferButton(_:)), for: .touchUpInside)
-        return button
+        ]
+        
+        NSLayoutConstraint.activate(constraints)
     }
     
     private func updateBenefitsStackView() {
@@ -409,8 +408,8 @@ final class SubscriptionViewController: UIViewController {
     }
     
     deinit {
-        #if DEBUG
+#if DEBUG
         print(">>> GONE \(Self.self)")
-        #endif
+#endif
     }
 }
